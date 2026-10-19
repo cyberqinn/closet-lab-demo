@@ -1368,6 +1368,17 @@
     try{ s = window.SEED_ITEMS; }catch(e){ s = null; }
     return (Array.isArray(s) ? s : []).filter(function(it){ return it && it.front; });
   }
+  // 内置示例搭配 / 购物车（来自 seed.js）：只在本地完全没有记录时注入一次
+  function seedOutfits(){
+    var s = null;
+    try{ s = window.SEED_OUTFITS; }catch(e){ s = null; }
+    return (Array.isArray(s) ? s : []).filter(function(of){ return of && of.name && Array.isArray(of.itemIds) && of.itemIds.length; });
+  }
+  function seedCart(){
+    var s = null;
+    try{ s = window.SEED_CART; }catch(e){ s = null; }
+    return Array.isArray(s) ? s.slice() : [];
+  }
   function load(){
     return dbGet(STORE_KEY).then(function(raw){
       var parsed = null;
@@ -2374,6 +2385,13 @@
       if(raw){ try{ parsed = JSON.parse(raw); }catch(e){ parsed = null; } }
       if(Array.isArray(parsed)){ state.outfits = parsed; return true; }
 
+      // 首次访问（本地完全没有搭配记录）→ 注入示例搭配
+      var seedOf = seedOutfits();
+      if(seedOf.length){
+        state.outfits = seedOf;
+        return dbSet(OUTFIT_KEY, JSON.stringify(seedOf)).then(function(){ return true; }).catch(function(){ return true; });
+      }
+
       var lsRaw = null;
       try{ lsRaw = localStorage.getItem(OUTFIT_KEY); }catch(e){}
       if(lsRaw){
@@ -2408,7 +2426,15 @@
     return dbGet(CART_KEY).then(function(raw){
       var p = null;
       if(raw){ try{ p = JSON.parse(raw); }catch(e){ p = null; } }
-      state.cart = Array.isArray(p) ? p : [];
+      if(Array.isArray(p)){ state.cart = p; return true; }
+
+      // 首次访问（本地完全没有购物车记录）→ 注入示例
+      var seedC = seedCart();
+      if(seedC.length){
+        state.cart = seedC;
+        return dbSet(CART_KEY, JSON.stringify(seedC)).then(function(){ return true; }).catch(function(){ return true; });
+      }
+      state.cart = [];
       return true;
     }).catch(function(){
       try{
